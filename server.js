@@ -1,33 +1,52 @@
 const express = require('express');
+const cors = require('cors');
+
 const app = express();
+
+// ✅ Fix CORS (VERY IMPORTANT)
+app.use(cors({
+  origin: "*"
+}));
 
 app.use(express.json());
 
-// IMPORTANT for Render
-const PORT = process.env.PORT || 3000;
+// ✅ Temporary database (in memory)
+let properties = [];
 
-let data = [
-  { area: "Vaishali Nagar", price: 5200, trend: "up" },
-  { area: "Mansarovar", price: 4800, trend: "up" }
-];
-
-// Test route
+// ✅ Test route
 app.get('/', (req, res) => {
-  res.send("Backend is working");
+  res.send("Backend is working 🚀");
 });
 
-// Get data
+// ✅ Get all data
 app.get('/data', (req, res) => {
-  res.json(data);
+  res.json(properties);
 });
 
-// Add data
+// ✅ Add new property (THIS FIXES YOUR BUTTON)
 app.post('/add', (req, res) => {
-  const newItem = req.body;
-  data.push(newItem);
-  res.json({ message: "Added successfully" });
+  const { area, price, trend } = req.body;
+
+  if (!area || !price) {
+    return res.status(400).json({ message: "Missing data" });
+  }
+
+  const newProperty = {
+    area,
+    price,
+    trend
+  };
+
+  properties.push(newProperty);
+
+  console.log("Added:", newProperty);
+
+  res.json({ message: "Data added successfully" });
 });
+
+// ✅ Start server
+const PORT = process.env.PORT || 10000;
 
 app.listen(PORT, () => {
-  console.log("Server running on port " + PORT);
+  console.log(`Server running on port ${PORT}`);
 });
