@@ -1,100 +1,148 @@
 const express = require("express");
-const cors = require("cors");
 const mongoose = require("mongoose");
-const jwt = require("jsonwebtoken");
-const Razorpay = require("razorpay");
+const cors = require("cors");
 
 const app = express();
-app.use(cors());
+
+// ================= MIDDLEWARE =================
 app.use(express.json());
+app.use(cors());
+app.use(express.static("public"));
 
-const SECRET = "mysecretkey";
+// ================= MONGO DB CONNECT =================
+mongoose.connect("mongodb+srv://<admin>:<admin123>@cluster0.zx3iucb.mongodb.net/?appName=Cluster0")
+.then(() => console.log("MongoDB Connected"))
+.catch((err) => console.log("MongoDB Error:", err));
 
-// 🔐 PUT YOUR NEW KEYS HERE (ONLY TEST KEYS)
-const razorpay = new Razorpay({
-  key_id: "PASTE_YOUR_KEY_ID_HERE",
-  key_secret: "PASTE_YOUR_KEY_SECRET_HERE"
+// ================= PAYMENT SCHEMA =================
+const paymentSchema = new mongoose.Schema({
+  paymentId: String,
+  userId: String,
+  amount: Number,
+  status: String,
+  plan: String,
+  createdAt: {
+    type: Date,
+    default: Date.now
+  },
+  validTill: Date
 });
 
-// 🔗 MongoDB (keep your existing string)
-mongoose.connect("mongodb+srv://admin:admin123@cluster0.zx3iucb.mongodb.net/propertyDB?retryWrites=true&w=majority")
-.then(() => console.log("MongoDB connected"))
-.catch(err => console.log(err));
+const Payment = mongoose.model("Payment", paymentSchema);
 
-// Schema
-const PropertySchema = new mongoose.Schema({
-  area: String,
-  price: Number,
-  trend: String
+// ================= AREA SCHEMA =================
+const areaSchema = new mongoose.Schema({
+  name: String,
+  city: String,
+  basePrice: Number,
+
+  connectivityScore: Number,
+  infrastructureScore: Number,
+  demandScore: Number,
+  developmentScore: Number,
+  livabilityScore: Number
 });
 
-const Property = mongoose.model("Property", PropertySchema);
+const Area = mongoose.model("Area", areaSchema);
 
-// LOGIN
-app.post("/login", (req, res) => {
-  const { username, password } = req.body;
+// ================= AI LOGIC =================
+function calculateScore(area) {
+  const total =
+    area.connectivityScore +
+    area.infrastructureScore +
+    area.demandScore +
+    area.developmentScore +
+    area.livabilityScore;
 
-  if (username === "admin" && password === "admin123") {
-    const token = jwt.sign({ username }, SECRET);
-    res.json({ token });
-  } else {
-    res.status(401).json({ message: "Invalid credentials" });
-  }
-});
-
-// AUTH
-function verifyToken(req, res, next) {
-  const token = req.headers["authorization"];
-  if (!token) return res.status(403).json({ message: "No token" });
-
-  try {
-    jwt.verify(token, SECRET);
-    next();
-  } catch {
-    res.status(401).json({ message: "Invalid token" });
-  }
+  return total / 100;
 }
 
-// ADD DATA
-app.post("/add", verifyToken, async (req, res) => {
-  try {
-    const newData = new Property(req.body);
-    await newData.save();
-    res.json({ message: "Saved" });
-  } catch {
-    res.status(500).json({ message: "Error" });
+function generateReport(area) {
+  const score = calculateScore(area) * 100;
+
+  let decision = "HOLD";
+  let risk = "MEDIUM";
+
+  if (score >= 75) {
+    decision = "BUY";
+    risk = "LOW";
+  } else if (score < 50) {
+    decision = "AVOID";
+    risk = "HIGH";
   }
-});
 
-// GET DATA
-app.get("/data", async (req, res) => {
-  const data = await Property.find();
-  res.json(data);
-});
+  const finalPrice = area.basePrice * (0.7 + score / 100);
 
-// 💳 CREATE ORDER (FIXED VERSION)
-app.post("/create-order", async (req, res) => {
+  return {
+    area: area.name,
+    city: area.city,
+    score: Math.round(score),
+    decision,
+    risk,
+    finalPrice: Math.round(finalPrice),
+    growth: score >= 75 ? "12-18%" : "5-10%"
+  };
+}
+
+// ================= PAYMENT API =================
+app.post("/api/payment", async (req, res) => {
   try {
-    const options = {
-      amount: 9900, // ₹99
-      currency: "INR",
-      receipt: "receipt_" + Date.now()
-    };
+    const { paymentId, userId, amount } = req.body;
 
-    const order = await razorpay.orders.create(options);
+    const payment = new Payment({
+      paymentId,
+      userId,
+      amount,
+      status: "SUCCESS",
+      plan: "PREMIUM",
+      validTill: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+    });
 
-    res.json(order);
+    await payment.save();
+
+    res.json({
+      success: true,
+      message: "Payment Saved Successfully",
+      data: payment
+    });
 
   } catch (err) {
-    console.log("RAZORPAY ERROR:", err);
-    res.status(500).json({ error: "Order creation failed" });
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 
-// TEST ROUTE
-app.get("/", (req, res) => {
-  res.send("Backend with Razorpay running 🚀");
+// ================= CREATE AREA (ADMIN) =================
+app.post("/api/area", async (req, res) => {
+  try {
+    const area = new Area(req.body);
+    await area.save();
+    res.json({ success: true, area });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-const PORT = process.env.PORT || 10000;
-app.listen(PORT, () => console.log("Server running"));
+// ================= GET AI REPORT =================
+app.get("/api/report/:id", async (req, res) => {
+  try {
+    const area = await Area.findById(req.params.id);
+
+    if (!area) {
+      return res.status(404).json({ message: "Area not found" });
+    }
+
+    const report = generateReport(area);
+
+    res.json(report);
+
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ================= START SERVER =================
+const PORT = process.env.PORT || 5000;
+
+app.listen(PORT, () => {
+  console.log("Server running on port", PORT);
+});
