@@ -10,13 +10,13 @@ app.use(express.json());
 
 const SECRET = "mysecretkey";
 
-// 🔐 Replace with NEW keys (DO NOT SHARE)
+// 🔐 PUT YOUR NEW KEYS HERE (ONLY TEST KEYS)
 const razorpay = new Razorpay({
-  key_id: "YOUR_NEW_KEY_ID",
-  key_secret: "YOUR_NEW_KEY_SECRET"
+  key_id: "PASTE_YOUR_KEY_ID_HERE",
+  key_secret: "PASTE_YOUR_KEY_SECRET_HERE"
 });
 
-// MongoDB
+// 🔗 MongoDB (keep your existing string)
 mongoose.connect("mongodb+srv://admin:admin123@cluster0.zx3iucb.mongodb.net/propertyDB?retryWrites=true&w=majority")
 .then(() => console.log("MongoDB connected"))
 .catch(err => console.log(err));
@@ -55,7 +55,7 @@ function verifyToken(req, res, next) {
   }
 }
 
-// ADD DATA (PROTECTED)
+// ADD DATA
 app.post("/add", verifyToken, async (req, res) => {
   try {
     const newData = new Property(req.body);
@@ -72,24 +72,26 @@ app.get("/data", async (req, res) => {
   res.json(data);
 });
 
-// 💳 CREATE ORDER
+// 💳 CREATE ORDER (FIXED VERSION)
 app.post("/create-order", async (req, res) => {
   try {
     const options = {
-      amount: 9900,
+      amount: 9900, // ₹99
       currency: "INR",
       receipt: "receipt_" + Date.now()
     };
 
     const order = await razorpay.orders.create(options);
+
     res.json(order);
 
   } catch (err) {
-    res.status(500).json({ error: "Order failed" });
+    console.log("RAZORPAY ERROR:", err);
+    res.status(500).json({ error: "Order creation failed" });
   }
 });
 
-// TEST
+// TEST ROUTE
 app.get("/", (req, res) => {
   res.send("Backend with Razorpay running 🚀");
 });
