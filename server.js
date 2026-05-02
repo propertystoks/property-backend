@@ -2,12 +2,19 @@ const express = require("express");
 const cors = require("cors");
 const mongoose = require("mongoose");
 const jwt = require("jsonwebtoken");
+const Razorpay = require("razorpay");
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
 const SECRET = "mysecretkey";
+
+// 🔐 Replace with NEW keys (DO NOT SHARE)
+const razorpay = new Razorpay({
+  key_id: "YOUR_NEW_KEY_ID",
+  key_secret: "YOUR_NEW_KEY_SECRET"
+});
 
 // MongoDB
 mongoose.connect("mongodb+srv://admin:admin123@cluster0.zx3iucb.mongodb.net/propertyDB?retryWrites=true&w=majority")
@@ -23,7 +30,7 @@ const PropertySchema = new mongoose.Schema({
 
 const Property = mongoose.model("Property", PropertySchema);
 
-// 🔐 LOGIN API
+// LOGIN
 app.post("/login", (req, res) => {
   const { username, password } = req.body;
 
@@ -35,41 +42,56 @@ app.post("/login", (req, res) => {
   }
 });
 
-// 🔐 Middleware (protect routes)
+// AUTH
 function verifyToken(req, res, next) {
   const token = req.headers["authorization"];
-
   if (!token) return res.status(403).json({ message: "No token" });
 
   try {
-    const decoded = jwt.verify(token, SECRET);
-    req.user = decoded;
+    jwt.verify(token, SECRET);
     next();
   } catch {
     res.status(401).json({ message: "Invalid token" });
   }
 }
 
-// ✅ PROTECTED ADD API
+// ADD DATA (PROTECTED)
 app.post("/add", verifyToken, async (req, res) => {
   try {
     const newData = new Property(req.body);
     await newData.save();
-    res.json({ message: "Data saved" });
+    res.json({ message: "Saved" });
   } catch {
     res.status(500).json({ message: "Error" });
   }
 });
 
-// PUBLIC DATA API
+// GET DATA
 app.get("/data", async (req, res) => {
   const data = await Property.find();
   res.json(data);
 });
 
+// 💳 CREATE ORDER
+app.post("/create-order", async (req, res) => {
+  try {
+    const options = {
+      amount: 9900,
+      currency: "INR",
+      receipt: "receipt_" + Date.now()
+    };
+
+    const order = await razorpay.orders.create(options);
+    res.json(order);
+
+  } catch (err) {
+    res.status(500).json({ error: "Order failed" });
+  }
+});
+
 // TEST
 app.get("/", (req, res) => {
-  res.send("Secure Backend Running 🚀");
+  res.send("Backend with Razorpay running 🚀");
 });
 
 const PORT = process.env.PORT || 10000;
