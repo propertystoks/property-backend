@@ -10,7 +10,7 @@ app.use(cors());
 app.use(express.static("public"));
 
 // ================= MONGO DB CONNECT =================
-mongoose.connect("mongodb+srv://<admin>:<admin123>@cluster0.zx3iucb.mongodb.net/?appName=Cluster0")
+mongoose.connect("mongodb+srv://piyushagrawal101994_db_user:admin123@cluster0.2x3iucb.mongodb.net/propertyDB?retryWrites=true&w=majority")
 .then(() => console.log("MongoDB Connected"))
 .catch((err) => console.log("MongoDB Error:", err));
 
