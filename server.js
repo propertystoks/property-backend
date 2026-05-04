@@ -17,11 +17,15 @@ mongoose.connect(
 )
 
 .then(() => {
+
   console.log("MongoDB Connected");
+
 })
 
 .catch((err) => {
+
   console.log("MongoDB Error:", err);
+
 });
 
 
@@ -80,14 +84,16 @@ app.get("/api/area", async (req, res) => {
     console.error(err);
 
     res.status(500).json({
+
       message: "Server error"
+
     });
   }
 });
 
 
 // =============================
-// ADD NEW AREA
+// ADD AREA
 // =============================
 
 app.post("/api/add-area", async (req, res) => {
@@ -124,6 +130,35 @@ app.post("/api/add-area", async (req, res) => {
     res.json({
 
       message: "Area added successfully"
+
+    });
+
+  } catch (err) {
+
+    console.error(err);
+
+    res.status(500).json({
+
+      message: "Server error"
+
+    });
+  }
+});
+
+
+// =============================
+// DELETE AREA
+// =============================
+
+app.delete("/api/delete-area/:id", async (req, res) => {
+
+  try {
+
+    await Area.findByIdAndDelete(req.params.id);
+
+    res.json({
+
+      message: "Area deleted successfully"
 
     });
 
